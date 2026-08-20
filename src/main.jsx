@@ -84,6 +84,7 @@ function BookingModal({ isOpen, onClose, defaultProduct = 'Instant Photo Magnets
   });
 
   const [submitted, setSubmitted] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   useEffect(() => {
     setFormData(prev => ({ ...prev, product: defaultProduct }));
@@ -91,15 +92,45 @@ function BookingModal({ isOpen, onClose, defaultProduct = 'Instant Photo Magnets
 
   if (!isOpen) return null;
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
-    setSubmitted(true);
-    showToast('Inquiry request submitted successfully!');
+    setIsSubmitting(true);
 
-    // Prepare WhatsApp pre-filled message
-    const message = `Hi Roopa Creations! I would like to book a stall for my event.%0A%0A*Name:* ${encodeURIComponent(formData.name)}%0A*Phone:* ${encodeURIComponent(formData.phone)}%0A*Event Type:* ${encodeURIComponent(formData.eventType)}%0A*Date:* ${encodeURIComponent(formData.eventDate || 'TBD')}%0A*Location:* ${encodeURIComponent(formData.location || 'TBD')}%0A*Guests:* ${encodeURIComponent(formData.guestCount)}%0A*Preferred Keepsake:* ${encodeURIComponent(formData.product)}%0A*Notes:* ${encodeURIComponent(formData.notes)}`;
+    const payload = {
+      _subject: `New Event Booking Inquiry - ${formData.name}`,
+      form_type: 'Event Booking Inquiry',
+      name: formData.name,
+      phone: formData.phone,
+      email: formData.email,
+      eventType: formData.eventType,
+      eventDate: formData.eventDate || 'TBD',
+      location: formData.location || 'TBD',
+      guestCount: formData.guestCount,
+      product: formData.product,
+      notes: formData.notes || 'None'
+    };
 
-    window.open(`https://wa.me/919019720502?text=${message}`, '_blank');
+    try {
+      await fetch('https://formspree.io/f/xqpznagg', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept': 'application/json'
+        },
+        body: JSON.stringify(payload)
+      });
+    } catch (err) {
+      console.warn('Formspree submit notice:', err);
+    } finally {
+      setIsSubmitting(false);
+      setSubmitted(true);
+      showToast('Inquiry submitted successfully!');
+
+      // Prepare WhatsApp pre-filled message as direct chat backup
+      const message = `Hi Roopa Creations! I would like to book a stall for my event.%0A%0A*Name:* ${encodeURIComponent(formData.name)}%0A*Phone:* ${encodeURIComponent(formData.phone)}%0A*Event Type:* ${encodeURIComponent(formData.eventType)}%0A*Date:* ${encodeURIComponent(formData.eventDate || 'TBD')}%0A*Location:* ${encodeURIComponent(formData.location || 'TBD')}%0A*Guests:* ${encodeURIComponent(formData.guestCount)}%0A*Preferred Keepsake:* ${encodeURIComponent(formData.product)}%0A*Notes:* ${encodeURIComponent(formData.notes)}`;
+
+      window.open(`https://wa.me/919019720502?text=${message}`, '_blank');
+    }
   };
 
   return (
@@ -224,8 +255,13 @@ function BookingModal({ isOpen, onClose, defaultProduct = 'Instant Photo Magnets
               </div>
 
               <div className="full-width" style={{ marginTop: '8px' }}>
-                <button type="submit" className="button" style={{ width: '100%', justifyContent: 'center' }}>
-                  Submit Inquiry via WhatsApp <ArrowUpRight size={17} />
+                <button 
+                  type="submit" 
+                  className="button" 
+                  disabled={isSubmitting} 
+                  style={{ width: '100%', justifyContent: 'center', opacity: isSubmitting ? 0.7 : 1 }}
+                >
+                  {isSubmitting ? 'Submitting Inquiry...' : 'Submit Inquiry via WhatsApp'} <ArrowUpRight size={17} />
                 </button>
               </div>
             </form>
@@ -278,7 +314,7 @@ function App() {
     }, 4000);
   };
 
-  const handleReviewSubmit = (e) => {
+  const handleReviewSubmit = async (e) => {
     e.preventDefault();
     if (!reviewForm.name.trim() || !reviewForm.text.trim()) return;
 
@@ -286,6 +322,26 @@ function App() {
     setReviews([newRev, ...reviews]);
     setReviewForm({ name: '', text: '', rating: 5 });
     showToast('Thank you for submitting your review!');
+
+    // Send copy to Formspree
+    try {
+      await fetch('https://formspree.io/f/xqpznagg', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept': 'application/json'
+        },
+        body: JSON.stringify({
+          _subject: `New Customer Review - ${newRev.name}`,
+          form_type: 'Customer Review',
+          name: newRev.name,
+          rating: `${newRev.rating} Stars`,
+          review_text: newRev.text
+        })
+      });
+    } catch (err) {
+      console.warn('Formspree review submit notice:', err);
+    }
   };
 
   const filteredGallery = activeCategory === 'all' 
